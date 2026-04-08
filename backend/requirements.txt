@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlmodel
+scikit-learn
+python-multipart
+pydantic
+sqlalchemy
+pypdf

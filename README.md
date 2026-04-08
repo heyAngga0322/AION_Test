@@ -82,3 +82,63 @@ cd frontend/chat-ui
 npm run test
 ```
 This executes the Karma runtime environment, allowing you to validate individual reactive signals without needing proxy binding active.
+
+## 6. Using the Application Guide
+
+### Step 1: Start the Application
+
+**Docker (Recommended):**
+```bash
+docker-compose up --build -d
+```
+Then open `http://localhost:4200`
+
+**Manual:**
+```bash
+# Terminal 1 - Backend
+cd backend
+source venv/bin/activate
+uvicorn main:app --reload
+
+# Terminal 2 - Frontend
+cd frontend/chat-ui
+ng serve
+```
+
+### Step 2: Upload Documents
+
+In the **Knowledge Base** panel (left side):
+
+1. **Enter a title** for your document (e.g., "Employee Handbook")
+2. **Choose input method:**
+   - **Upload file**: Click "Choose File" and select `.txt` or `.pdf`
+   - **Paste text**: Type or paste text directly into the textarea
+3. Click **"Upload & Process"**
+
+The system will extract text, chunk into paragraphs, and build the TF-IDF index.
+
+### Step 3: Ask Questions
+
+In the **Ask the Context** panel (right side):
+
+1. Type your question in the input field (e.g., "What is machine learning?")
+2. Press **Enter** or click the send button
+3. The system returns:
+   - **Answer**: Relevant text chunks from your documents
+   - **Sources**: Document titles the answer came from
+
+### Example Workflow
+
+```
+1. Upload "ml_book.pdf" with title "ML Book"
+2. Upload "company_policy.txt" with title "Company Policy"
+3. Ask: "What is supervised learning?"
+4. System returns matching paragraphs with source attribution
+```
+
+### Tips for Best Results
+
+- Upload documents with **substantial text content** (not just tables of contents)
+- Questions work best when they match the **terminology in your documents**
+- The system returns **exact paragraphs** from your documents, not generated summaries
+- If results are poor, try rephrasing your question using words from the documents

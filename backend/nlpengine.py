@@ -40,12 +40,46 @@ class QAEngine:
 qa_engine = QAEngine()
 
 def process_text_into_chunks(text: str) -> List[str]:
-    # Simple chunking by paragraph or sentences based on newlines.
+    # Better chunking: group lines into semantic paragraphs
     text = text.replace('\r', '\n')
-    raw_chunks = re.split(r'\n+', text)
-    processed = []
-    for chunk in raw_chunks:
-        cl = chunk.strip()
-        if len(cl) > 20: # skip very small noisy lines
-            processed.append(cl)
-    return processed
+    lines = text.split('\n')
+    
+    chunks = []
+    current_chunk = []
+    
+    # Pattern to detect TOC lines (e.g., "1.1.1 Title .......... 5")
+    toc_pattern = re.compile(r'\.{3,}')
+    
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            # Empty line = paragraph break
+            if current_chunk:
+                chunk_text = ' '.join(current_chunk).strip()
+                if len(chunk_text) > 50 and not toc_pattern.search(chunk_text):
+                    chunks.append(chunk_text)
+                current_chunk = []
+            continue
+        
+        # Skip TOC lines
+        if toc_pattern.search(stripped):
+            continue
+            
+        # Skip standalone headers (short lines with mostly numbers/dots)
+        if len(stripped) < 40 and re.match(r'^[\d\.\s]+[A-Za-z\s]+$', stripped):
+            if current_chunk:
+                chunk_text = ' '.join(current_chunk).strip()
+                if len(chunk_text) > 50:
+                    chunks.append(chunk_text)
+                current_chunk = []
+            continue
+            
+        current_chunk.append(stripped)
+    
+    # Don't forget the last chunk
+    if current_chunk:
+        chunk_text = ' '.join(current_chunk).strip()
+        if len(chunk_text) > 50 and not toc_pattern.search(chunk_text):
+            chunks.append(chunk_text)
+    
+    return chunks if chunks else [text.strip()]

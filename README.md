@@ -4,7 +4,7 @@ A bespoke Question Answering (QA) service that enables you to ingest local docum
 
 ## 1. Application Specification
 - **System Type:** Extractive Natural Language Processing (NLP) QA Web Application.
-- **Data Ingestion:** Upload multiple raw text documents `.txt` and Portable Document Formats `.pdf`.
+- **Data Ingestion:** Upload multiple raw text documents `.txt`, Portable Document Formats `.pdf`, and JSON files `.json`.
 - **Knowledge Representation:** The system chunks paragraphs, generating embeddings using localized Term Frequency-Inverse Document Frequency (TF-IDF) indexing algorithms within a lightweight SQLite mapping.
 - **Response Format:** It returns exact, pristine paragraph chunks that best answer the provided query natively, avoiding any generative LLM behavior.
 
@@ -111,7 +111,7 @@ In the **Knowledge Base** panel (left side):
 
 1. **Enter a title** for your document (e.g., "Employee Handbook")
 2. **Choose input method:**
-   - **Upload file**: Click "Choose File" and select `.txt` or `.pdf`
+   - **Upload file**: Click "Choose File" and select `.txt`, `.pdf`, or `.json`
    - **Paste text**: Type or paste text directly into the textarea
 3. Click **"Upload & Process"**
 

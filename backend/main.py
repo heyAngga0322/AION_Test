@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import io
+import json
+import re
 from pypdf import PdfReader
 from sqlmodel import Session, select
-from typing import List
+from typing import List, Any
 
 from database import create_db_and_tables, get_session
 from models import Document, Chunk, QueryRequest, QueryResponse
@@ -45,6 +47,9 @@ async def upload_document(
                 extracted = page.extract_text()
                 if extracted:
                     content += extracted + "\n"
+        elif file.filename and file.filename.lower().endswith('.json'):
+            json_content = content_bytes.decode('utf-8', errors='replace')
+            content = extract_text_from_json(json_content)
         else:
             content = content_bytes.decode('utf-8', errors='replace')
     elif text_content:
@@ -73,6 +78,43 @@ async def upload_document(
     qa_engine.load_chunks(list(all_chunks))
 
     return {"message": f"Document '{title}' uploaded and split into {len(new_chunks)} chunks."}
+
+def clean_text(text: str) -> str:
+    """Clean text: lowercase, strip HTML tags, remove special characters."""
+    # Convert to lowercase
+    text = text.lower()
+    # Strip HTML tags
+    text = re.sub(r'<[^>]+>', ' ', text)
+    # Remove special characters but keep alphanumeric, spaces, and basic punctuation
+    text = re.sub(r'[^a-z0-9\s\.\,\!\?\-]', ' ', text)
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def extract_text_from_json(json_str: str) -> str:
+    """Recursively extract and clean all string values from JSON into flat text."""
+    try:
+        data = json.loads(json_str)
+        texts = []
+        
+        def extract(obj: Any):
+            if isinstance(obj, str):
+                # Clean the text before adding
+                cleaned = clean_text(obj)
+                if cleaned and len(cleaned) > 2:  # Skip very short strings
+                    texts.append(cleaned)
+            elif isinstance(obj, dict):
+                for value in obj.values():
+                    extract(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    extract(item)
+        
+        extract(data)
+        return "\n".join(texts)
+    except json.JSONDecodeError:
+        # Try to clean raw string even if not valid JSON
+        return clean_text(json_str)
 
 @app.post("/api/ask", response_model=QueryResponse)
 def ask_question(request: QueryRequest, session: Session = Depends(get_session)):

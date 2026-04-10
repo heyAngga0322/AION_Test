@@ -24,7 +24,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
-    # Load existing chunks into ML engine
+    # Load existing chunks into BM25 engine
     from database import engine
     with Session(engine) as session:
         chunks = session.exec(select(Chunk)).all()
@@ -73,7 +73,7 @@ async def upload_document(
     
     session.commit()
 
-    # Re-build TF-IDF index
+    # Re-build BM25 index
     all_chunks = session.exec(select(Chunk)).all()
     qa_engine.load_chunks(list(all_chunks))
 

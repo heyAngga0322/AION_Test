@@ -1,10 +1,16 @@
 import os
+from pathlib import Path
+
 from sqlmodel import SQLModel, create_engine, Session
 
-# Ensure data directory exists for docker persistence
-os.makedirs("data", exist_ok=True)
-sqlite_file_name = "data/database.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+# Default DB location is repo-root `app_data/database.db` (writable, and easy to reset).
+# Override with QA_DB_PATH, e.g. QA_DB_PATH=/abs/path/to/database.db
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_DB_PATH = REPO_ROOT / "app_data" / "database.db"
+db_path = Path(os.getenv("QA_DB_PATH", str(DEFAULT_DB_PATH))).expanduser()
+db_path.parent.mkdir(parents=True, exist_ok=True)
+
+sqlite_url = f"sqlite:///{db_path}"
 
 engine = create_engine(sqlite_url, echo=False)
 

@@ -5,7 +5,7 @@ A bespoke Question Answering (QA) service that enables you to ingest local docum
 ## 1. Application Specification
 - **System Type:** Extractive Natural Language Processing (NLP) QA Web Application.
 - **Data Ingestion:** Upload multiple raw text documents `.txt`, Portable Document Formats `.pdf`, and JSON files `.json`.
-- **Knowledge Representation:** The system chunks paragraphs, generating embeddings using localized Term Frequency-Inverse Document Frequency (TF-IDF) indexing algorithms within a lightweight SQLite mapping.
+- **Knowledge Representation:** The system chunks paragraphs and ranks relevant passages with BM25 probabilistic ranking within a lightweight SQLite mapping.
 - **Response Format:** It returns exact, pristine paragraph chunks that best answer the provided query natively, avoiding any generative LLM behavior.
 
 ## 2. Technology Stack & Libraries
@@ -18,17 +18,17 @@ This repository is split deeply across a modern frontend and a mathematical back
 
 **Backend Engine:**
 - **FastAPI / Uvicorn**: A highly concurrent async API layer. 
-- **scikit-learn**: Driving the heavy numerical vectorization (`TfidfVectorizer`) and mathematical ranking (Cosine Similarity).
-- **SQLModel / SQLAlchemy**: Pydantic-first Object Relational Mapping storing chunk embeddings and tracking loaded sources gracefully via SQLite.
+- **rank-bm25**: Probabilistic ranking algorithm for information retrieval, replacing TF-IDF for better document length normalization and term saturation handling.
+- **SQLModel / SQLAlchemy**: Pydantic-first Object Relational Mapping storing source documents and chunks gracefully via SQLite.
 - **pypdf**: An internal parser safely extracting raw string constructs from binary PDF pages.
 
 ## 3. Hot Take: The Engineering Decision 🌶️
-**The Decision**: We actively rejected modern GenAI LLMs (OpenAI, Anthropic) and standard Vector Database juggernauts (Pinecone, Milvus, Qdrant) in favor of Localized TF-IDF Extractive QA mapped natively on SQLite arrays.
+**The Decision**: We actively rejected modern GenAI LLMs (OpenAI, Anthropic) and standard Vector Database juggernauts (Pinecone, Milvus, Qdrant) in favor of Localized BM25 Extractive QA mapped natively on SQLite arrays.
 
-**The "Hot Take" Rationale**: The modern engineering landscape is suffering from a pervasive GenAI hype crisis—blindly throwing neural networks at fundamental text search problems. By constructing an Extractive QA system utilizing raw TF-IDF mapping:
+**The "Hot Take" Rationale**: The modern engineering landscape is suffering from a pervasive GenAI hype crisis—blindly throwing neural networks at fundamental text search problems. By constructing an Extractive QA system utilizing raw BM25 probabilistic ranking:
 1. **Mathematical Verifiability**: Our system cannot "hallucinate". It either extracts the exact matching sentence in the localized text, or it rejects the query. 
 2. **Zero Operating Cost**: We bypass millions of token deductions and prevent cloud vendor infrastructure lock-in completely.
-3. **Substantially Lighter**: High-tier Vector DB orchestration requires vast memory footprints and cluster deployments. Fusing SQLite with standard Python internal memory bindings creates an instantly deployable runtime that calculates identical cosine similarities at a fraction of the cost, requiring zero container configuration maintenance.
+3. **Substantially Lighter**: High-tier Vector DB orchestration requires vast memory footprints and cluster deployments. Fusing SQLite with standard Python internal memory bindings creates an instantly deployable runtime that calculates BM25 relevance scores at a fraction of the cost, requiring zero container configuration maintenance.
 
 ## 4. How to Run It
 This application is designed identically to run containerized.
@@ -52,6 +52,17 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
+
+### Reset Database (Start Over)
+To wipe all ingested documents/chunks and recreate an empty database:
+
+```bash
+cd backend
+source venv/bin/activate
+python reset_db.py
+```
+
+By default, runtime DB data is stored at `app_data/database.db` in the repository root.
 
 **Terminal 2: Frontend Client**
 ```bash
@@ -115,7 +126,7 @@ In the **Knowledge Base** panel (left side):
    - **Paste text**: Type or paste text directly into the textarea
 3. Click **"Upload & Process"**
 
-The system will extract text, chunk into paragraphs, and build the TF-IDF index.
+The system will extract text, chunk into paragraphs, and build the BM25 index.
 
 ### Step 3: Ask Questions
 

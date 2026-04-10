@@ -1,1 +1,13 @@
+# Local task notes
 task.txt
+
+# SQLite databases (runtime data)
+*.db
+app_data/
+backend_data/
+backend/data/
+data/
+
+# Python cache artifacts
+__pycache__/
+*.pyc

@@ -9,7 +9,24 @@ from typing import List, Any
 
 from database import create_db_and_tables, get_session
 from models import Document, Chunk, QueryRequest, QueryResponse
-from nlpengine import qa_engine, process_text_into_chunks
+from nlpengine import qa_engine, process_text_into_chunks, normalize_chunk_text
+
+def shorten_answer(text: str, max_sentences: int = 3, max_chars: int = 900) -> str:
+    text = text.strip()
+    if not text:
+        return text
+
+    # Split into sentences (simple heuristic; keeps extractive content).
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    shortened = " ".join(s for s in sentences[:max_sentences] if s).strip()
+    if not shortened:
+        shortened = text
+
+    if len(shortened) > max_chars:
+        shortened = shortened[:max_chars].rsplit(" ", 1)[0].rstrip()
+        shortened = shortened + "…"
+
+    return shortened
 
 app = FastAPI(title="QA Engine API")
 
@@ -24,7 +41,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
-    # Load existing chunks into BM25 engine
+    # Load existing chunks into TF-IDF engine
     from database import engine
     with Session(engine) as session:
         chunks = session.exec(select(Chunk)).all()
@@ -73,7 +90,7 @@ async def upload_document(
     
     session.commit()
 
-    # Re-build BM25 index
+    # Re-build TF-IDF index
     all_chunks = session.exec(select(Chunk)).all()
     qa_engine.load_chunks(list(all_chunks))
 
@@ -118,7 +135,8 @@ def extract_text_from_json(json_str: str) -> str:
 
 @app.post("/api/ask", response_model=QueryResponse)
 def ask_question(request: QueryRequest, session: Session = Depends(get_session)):
-    results = qa_engine.ask(request.question)
+    # Return the single best passage for readability in the UI
+    results = qa_engine.ask(request.question, top_k=1)
     
     if not results:
         return QueryResponse(answer="I couldn't find an answer to that question in the provided documents.", sources=[])
@@ -129,7 +147,8 @@ def ask_question(request: QueryRequest, session: Session = Depends(get_session))
     for chunk, score in results:
         doc = session.get(Document, chunk.document_id)
         if doc:
-            answer_parts.append(chunk.text)
+            cleaned = normalize_chunk_text(chunk.text)
+            answer_parts.append(shorten_answer(cleaned))
             sources.add(f"{doc.title}")
             
     final_answer = "\n\n".join(answer_parts)

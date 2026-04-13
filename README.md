@@ -21,6 +21,7 @@ This repository is split deeply across a modern frontend and a mathematical back
 - **scikit-learn**: Driving TF-IDF vectorization (`TfidfVectorizer`) and cosine similarity ranking.
 - **SQLModel / SQLAlchemy**: Pydantic-first Object Relational Mapping storing source documents and chunks gracefully via SQLite.
 - **pypdf**: An internal parser safely extracting raw string constructs from binary PDF pages.
+- **NLTK**: Natural Language Toolkit for sentence-level tokenization, enabling precise answer extraction.
 
 ## 3. Hot Take: The Engineering Decision 🌶️
 **The Decision**: We actively rejected modern GenAI LLMs (OpenAI, Anthropic) and standard Vector Database juggernauts (Pinecone, Milvus, Qdrant) in favor of Localized TF-IDF Extractive QA mapped natively on SQLite arrays.
@@ -126,7 +127,7 @@ In the **Knowledge Base** panel (left side):
    - **Paste text**: Type or paste text directly into the textarea
 3. Click **"Upload & Process"**
 
-The system will extract text, chunk into paragraphs, and build the TF-IDF index.
+The system will extract text, chunk into sentences using NLTK for precise answers, and build the BM25 index.
 
 ### Step 3: Ask Questions
 

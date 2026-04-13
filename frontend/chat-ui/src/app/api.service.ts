@@ -20,7 +20,7 @@ export class ApiService {
     if (file) {
       formData.append('file', file);
     }
-    if (textContent) {
+    if (textContent !== null && textContent !== undefined) {
       formData.append('text_content', textContent);
     }
     return this.http.post(`${this.baseUrl}/documents`, formData);

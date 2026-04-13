@@ -5,7 +5,7 @@ import json
 import re
 from pypdf import PdfReader
 from sqlmodel import Session, select
-from typing import List, Any
+from typing import List, Any, Dict, Tuple
 
 from database import create_db_and_tables, get_session
 from models import Document, Chunk, QueryRequest, QueryResponse
@@ -133,24 +133,81 @@ def extract_text_from_json(json_str: str) -> str:
         # Try to clean raw string even if not valid JSON
         return clean_text(json_str)
 
+def synthesize_answer(question: str, chunks_with_scores: List[Tuple[Chunk, float]], session: Session) -> Tuple[str, List[str]]:
+    """Synthesize a comprehensive answer from multiple relevant chunks.
+    
+    This function combines information from all relevant chunks to create
+    a coherent answer that reads all available resources and concludes.
+    """
+    if not chunks_with_scores:
+        return "I couldn't find an answer to that question in the provided documents.", []
+    
+    # Group chunks by document for better organization
+    doc_chunks: Dict[int, List[Tuple[str, float]]] = {}
+    sources = set()
+    
+    for chunk, score in chunks_with_scores:
+        doc = session.get(Document, chunk.document_id)
+        if not doc:
+            continue
+        
+        cleaned = normalize_chunk_text(chunk.text)
+        if not cleaned or len(cleaned) < 10:
+            continue
+            
+        if doc.id not in doc_chunks:
+            doc_chunks[doc.id] = []
+        doc_chunks[doc.id].append((cleaned, score))
+        sources.add(doc.title)
+    
+    if not doc_chunks:
+        return "I couldn't find relevant information to answer this question.", []
+    
+    # Build synthesized answer
+    answer_parts = []
+    
+    # If only one document, combine all relevant chunks
+    if len(doc_chunks) == 1:
+        doc_id = list(doc_chunks.keys())[0]
+        chunks = doc_chunks[doc_id]
+        
+        if len(chunks) == 1:
+            # Single best answer
+            answer_parts.append(chunks[0][0])
+        else:
+            # Multiple relevant passages - combine them
+            answer_parts.append("Based on the document, here are the relevant details:")
+            for i, (text, score) in enumerate(chunks[:5], 1):  # Top 5 from single doc
+                if i == 1:
+                    answer_parts.append(text)  # First one is the main answer
+                else:
+                    answer_parts.append(f"Additionally: {text}")
+    else:
+        # Multiple documents - synthesize across sources
+        answer_parts.append("Based on information from multiple sources:")
+        
+        for doc_id, chunks in doc_chunks.items():
+            doc = session.get(Document, doc_id)
+            if not doc:
+                continue
+            
+            # Get the best chunk from this document
+            best_text, best_score = chunks[0]
+            answer_parts.append(f"\nFrom '{doc.title}': {best_text}")
+            
+            # Add secondary info if available and relevant
+            if len(chunks) > 1 and chunks[1][1] > 0.15:
+                answer_parts.append(f"  Also noted: {chunks[1][0]}")
+    
+    final_answer = "\n\n".join(answer_parts)
+    return final_answer, list(sources)
+
 @app.post("/api/ask", response_model=QueryResponse)
 def ask_question(request: QueryRequest, session: Session = Depends(get_session)):
-    # Return the single best passage for readability in the UI
-    results = qa_engine.ask(request.question, top_k=1)
+    # Retrieve ALL relevant chunks above threshold
+    results = qa_engine.ask_all_relevant(request.question, threshold=0.05)
     
-    if not results:
-        return QueryResponse(answer="I couldn't find an answer to that question in the provided documents.", sources=[])
+    # Synthesize comprehensive answer from all relevant resources
+    final_answer, sources = synthesize_answer(request.question, results, session)
     
-    # Construct Extractive answer
-    answer_parts = []
-    sources = set()
-    for chunk, score in results:
-        doc = session.get(Document, chunk.document_id)
-        if doc:
-            cleaned = normalize_chunk_text(chunk.text)
-            answer_parts.append(shorten_answer(cleaned))
-            sources.add(f"{doc.title}")
-            
-    final_answer = "\n\n".join(answer_parts)
-    
-    return QueryResponse(answer=final_answer, sources=list(sources))
+    return QueryResponse(answer=final_answer, sources=sources)

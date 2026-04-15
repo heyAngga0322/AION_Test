@@ -55,7 +55,7 @@ A bespoke Question Answering (QA) service that enables you to ingest local docum
 This repository is split deeply across a modern frontend and a mathematical backend layer.
 
 **Frontend Layer:**
-- **Angular (v18+)**: Configured specifically in **Zoneless Mode** (`provideZonelessChangeDetection`) removing `zone.js` for ultra-optimized bundle sizes and execution speed.
+- **Angular (v)**: Configured specifically in **Zoneless Mode** (`provideZonelessChangeDetection`) removing `zone.js` for ultra-optimized bundle sizes and execution speed.
 - **Angular Signals:** Utilized as the strict reactive primitive. 
 - **Tailwind CSS**: Leveraging utility classes and glassmorphism UI styles for a premium user perspective.
 

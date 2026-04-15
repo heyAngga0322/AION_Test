@@ -2,6 +2,49 @@
 
 A bespoke Question Answering (QA) service that enables you to ingest local documents and natively perform semantic retrieval, answering questions completely offline through raw algorithmic extraction.
 
+## Prerequisites
+
+### System Requirements
+- **RAM**: Minimum 2GB, Recommended 4GB+ for large document sets
+- **Storage**: Minimum 1GB free space (for Docker images and data)
+- **CPU**: Any modern CPU (Docker containers share host resources)
+
+### Docker (Recommended)
+- **Docker Engine**: Version 20.10+ 
+- **Docker Compose**: Version 2.0+
+- **Permissions**: User must be in docker group or use sudo
+
+### Manual Development Setup
+
+#### Backend (Python)
+- **Python**: Version 3.9+ (tested with 3.11)
+- **pip**: Latest version
+- **Virtual Environment**: Recommended (`python3 -m venv venv`)
+
+#### Frontend (Node.js/Angular)
+- **Node.js**: Version 20.19+ (required for Angular 21)
+- **npm**: Version 11.11.0+ (or compatible)
+- **nvm**: Recommended for Node version management
+
+### Optional Tools
+- **Git**: For cloning and version control
+- **VS Code**: Recommended IDE with Angular and Python extensions
+- **Postman/Insomnia**: For API testing (optional, Swagger UI available)
+
+### Port Requirements
+- **4200**: Frontend (Angular dev server or Nginx)
+- **8000**: Backend (FastAPI/Uvicorn)
+- **3306**: Not used (SQLite is file-based, no separate DB server)
+
+### Network Access
+- **Internet**: Required for initial package installation
+- **Offline**: Once built, the application runs completely offline
+- **Firewall**: Ensure ports 4200 and 8000 are accessible locally
+
+### File System Permissions
+- **Write access**: For `./app_data/` directory (SQLite database storage)
+- **Execute permissions**: For Docker or Python processes
+
 ## 1. Application Specification
 - **System Type:** Extractive Natural Language Processing (NLP) QA Web Application.
 - **Data Ingestion:** Upload multiple raw text documents `.txt`, Portable Document Formats `.pdf`, and JSON files `.json`.

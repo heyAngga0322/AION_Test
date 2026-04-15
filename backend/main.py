@@ -54,6 +54,15 @@ async def upload_document(
     text_content: str = Form(None),
     session: Session = Depends(get_session)
 ):
+    """RAG Process Step 0: Document Ingestion
+    
+    This endpoint handles document upload and preprocessing:
+    1. Extract text from PDF/JSON/TXT files
+    2. Clean and normalize text
+    3. Split into chunks (sentence-level with NLTK)
+    4. Store chunks in database
+    5. Load chunks into QA engine for embedding
+    """
     content = ""
     if file:
         content_bytes = await file.read()
@@ -80,7 +89,7 @@ async def upload_document(
     session.commit()
     session.refresh(doc)
 
-    # Document Chunking
+    # Process into chunks
     chunks_text = process_text_into_chunks(content)
     new_chunks = []
     for i, ctx in enumerate(chunks_text):
@@ -90,7 +99,7 @@ async def upload_document(
     
     session.commit()
 
-    # Re-build TF-IDF index
+    # Load chunks into QA engine (creates embeddings)
     all_chunks = session.exec(select(Chunk)).all()
     qa_engine.load_chunks(list(all_chunks))
 
@@ -134,10 +143,13 @@ def extract_text_from_json(json_str: str) -> str:
         return clean_text(json_str)
 
 def synthesize_answer(question: str, chunks_with_scores: List[Tuple[Chunk, float]], session: Session) -> Tuple[str, List[str]]:
-    """Synthesize a comprehensive answer from multiple relevant chunks.
+    """RAG Process Step 3: Answer Synthesis
     
     This function combines information from all relevant chunks to create
     a coherent answer that reads all available resources and concludes.
+    
+    Note: This is extractive synthesis (not generative) - we organize
+    and present retrieved chunks without generating new text.
     """
     if not chunks_with_scores:
         return "I couldn't find an answer to that question in the provided documents.", []
@@ -204,10 +216,17 @@ def synthesize_answer(question: str, chunks_with_scores: List[Tuple[Chunk, float
 
 @app.post("/api/ask", response_model=QueryResponse)
 def ask_question(request: QueryRequest, session: Session = Depends(get_session)):
-    # Retrieve ALL relevant chunks above threshold
-    results = qa_engine.ask_all_relevant(request.question, threshold=0.05)
+    """RAG Process: Complete Pipeline
     
-    # Synthesize comprehensive answer from all relevant resources
+    1. Retrieval: Find all relevant chunks using semantic search
+    2. Synthesis: Combine and organize retrieved chunks into coherent answer
+    3. Return: Extractive answer with source attribution
+    """
+    # Step 1: Retrieve ALL relevant chunks above threshold
+    results = qa_engine.ask_all_relevant(request.question, threshold=0.3)
+    
+    # Step 2: Synthesize comprehensive answer from all relevant resources
     final_answer, sources = synthesize_answer(request.question, results, session)
     
+    # Step 3: Return extractive answer with source attribution
     return QueryResponse(answer=final_answer, sources=sources)

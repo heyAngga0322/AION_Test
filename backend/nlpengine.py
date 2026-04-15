@@ -4,8 +4,8 @@ from typing import List, Tuple
 
 import nltk
 from nltk.tokenize import sent_tokenize
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
 from models import Chunk
 
@@ -50,58 +50,87 @@ def normalize_chunk_text(text: str) -> str:
 
 class QAEngine:
     def __init__(self):
-        self.vectorizer = TfidfVectorizer(stop_words="english")
-        self.chunk_vectors = None
-        self.chunks_data: List[Chunk] = []
+        # Initialize Sentence Transformer model for semantic embeddings
+        # Model: all-MiniLM-L6-v2 creates 384-dimensional embeddings
+        # This replaces TF-IDF for better semantic understanding
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.embeddings = None
+        self.chunks_data = []
 
     def load_chunks(self, chunks: List[Chunk]):
+        """RAG Process Step 1: Document Ingestion & Embedding
+        
+        This method encodes document chunks into semantic embeddings.
+        These embeddings will be used for similarity search during retrieval.
+        """
         self.chunks_data = chunks
         if not chunks:
-            self.chunk_vectors = None
+            self.embeddings = None
             return
-
+        
+        # Convert text chunks to semantic embeddings
         texts = [chunk.text for chunk in chunks]
-        self.chunk_vectors = self.vectorizer.fit_transform(texts)
+        # encode() creates normalized embeddings for better similarity calculation
+        self.embeddings = self.model.encode(texts, normalize_embeddings=True)
 
     def ask(self, query: str, top_k: int = 3) -> List[Tuple[Chunk, float]]:
-        if self.chunk_vectors is None or not self.chunks_data:
+        """RAG Process Step 2: Retrieval
+        
+        This method performs semantic similarity search to find the most relevant
+        document chunks for the given query using cosine similarity between embeddings.
+        """
+        if self.embeddings is None or not self.chunks_data:
             return []
 
         query = (query or "").strip()
         if not query:
             return []
 
-        query_vec = self.vectorizer.transform([query])
-        scores = cosine_similarity(query_vec, self.chunk_vectors).flatten()
+        # Encode query to embedding
+        query_embedding = self.model.encode([query], normalize_embeddings=True)
+        
+        # Calculate cosine similarity between query and all document embeddings
+        # np.dot() with normalized embeddings gives cosine similarity
+        similarities = np.dot(self.embeddings, query_embedding.T).flatten()
+        
+        # Get top-k most similar chunks
         k = max(1, min(top_k, len(self.chunks_data)))
-        top_indices = scores.argsort()[-k:][::-1]
+        top_indices = similarities.argsort()[-k:][::-1]
 
         results = []
         for idx in top_indices:
-            score = scores[idx]
+            score = similarities[idx]
             results.append((self.chunks_data[idx], float(score)))
 
         return results
 
-    def ask_all_relevant(self, query: str, threshold: float = 0.1) -> List[Tuple[Chunk, float]]:
-        """Retrieve all chunks above a relevance threshold, sorted by score."""
-        if self.chunk_vectors is None or not self.chunks_data:
+    def ask_all_relevant(self, query: str, threshold: float = 0.3) -> List[Tuple[Chunk, float]]:
+        """RAG Process Step 2: Enhanced Retrieval
+        
+        Retrieves ALL chunks above a relevance threshold for comprehensive answer synthesis.
+        Uses semantic embeddings for better understanding of query intent.
+        """
+        if self.embeddings is None or not self.chunks_data:
             return []
 
         query = (query or "").strip()
         if not query:
             return []
 
-        query_vec = self.vectorizer.transform([query])
-        scores = cosine_similarity(query_vec, self.chunk_vectors).flatten()
+        # Encode query to embedding
+        query_embedding = self.model.encode([query], normalize_embeddings=True)
+        
+        # Calculate semantic similarities
+        similarities = np.dot(self.embeddings, query_embedding.T).flatten()
         
         # Get all indices above threshold, sorted by score descending
-        relevant_indices = [i for i, s in enumerate(scores) if s >= threshold]
-        relevant_indices.sort(key=lambda i: scores[i], reverse=True)
+        # Threshold 0.3 for semantic embeddings (higher than TF-IDF due to normalization)
+        relevant_indices = [i for i, s in enumerate(similarities) if s >= threshold]
+        relevant_indices.sort(key=lambda i: similarities[i], reverse=True)
         
         results = []
         for idx in relevant_indices:
-            results.append((self.chunks_data[idx], float(scores[idx])))
+            results.append((self.chunks_data[idx], float(similarities[idx])))
 
         return results
 

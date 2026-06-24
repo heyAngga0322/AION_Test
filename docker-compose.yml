@@ -1,21 +1,25 @@
+version: "3.9"
 services:
   backend:
-    build: 
+    build:
       context: ./backend
+    image: qa_engine_backend:latest
     container_name: qa_engine_backend
     ports:
       - "8000:8000"
     volumes:
-      - ./app_data:/app/app_data
+      - ./app_data:/app/app_data:Z
     restart: unless-stopped
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
   frontend:
-    build: 
+    build:
       context: ./frontend
+    image: qa_engine_frontend:latest
     container_name: qa_engine_frontend
     ports:
       - "4200:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
     restart: unless-stopped

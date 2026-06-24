@@ -1,5 +1,5 @@
 # Stage 1: Build Angular App
-FROM node:22-alpine AS build
+FROM docker.io/library/node:22-alpine AS build
 
 WORKDIR /app
 COPY chat-ui/package*.json ./
@@ -9,7 +9,7 @@ COPY chat-ui/ .
 RUN npm run build -- --configuration production
 
 # Stage 2: Serve via Nginx
-FROM nginx:alpine
+FROM docker.io/library/nginx:alpine
 
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
